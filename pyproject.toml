@@ -1,0 +1,14 @@
+[project]
+name = "adressliste"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.11"
+dependencies = [
+    "openpyxl>=3.1.5",
+    "pandas>=3.0.5",
+    "email-loghandler",
+    "certifi>=2026.7.22",
+]
+
+[tool.uv.sources]
+email-loghandler = { git = "https://github.com/jstiete/email_loghandler.git" }
