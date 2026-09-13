@@ -11,6 +11,9 @@ Adressliste.py
 Das Skript enthält Funktionen, um eine Adressliste automatisiert zu verwalten:
  - Gespeichterte Daten an die jeweilige Person senden (E-Mail).
  - Komplette Liste als Dateianhang senden.
+
+Author: (c) 2026 jstiete (https://github.com/jstiete)
+Licence: MIT
 '''
 
 import argparse
@@ -56,7 +59,7 @@ class ConfigData:
             body_html_userdata: Optional[str] = None,
             body_plaintext_complete_list: str,
             body_html_complete_list: Optional[str] = None,
-            header_row:int,
+            header_row:int = 1,
             send_log_to: Optional[bool] = None
     ):
 
@@ -87,7 +90,7 @@ def add_email_loghandler(config:ConfigData):
     try:
         from email_loghandler import make_email_handler
     except ImportError:
-        logger.warning("E-Mail Logging Handler konnte nicht importiert werden. Run 'pip install .' or 'pip install -r requirements.txt' or 'uv sync'.")
+        logger.warning("E-Mail Logging Handler konnte nicht importiert werden.'pip install -r requirements.txt' oder 'uv sync' ausführen.")
         return 1
 
     mail_formatter = logging.Formatter(
@@ -98,8 +101,8 @@ def add_email_loghandler(config:ConfigData):
     handler = make_email_handler(
         smtp_server=config.smtp_host,
         smtp_port=config.smtp_port,
-        use_tls=True,
-        use_ssl=False,
+        use_tls=config.use_tls,
+        use_ssl=config.use_ssl,
         username=config.username,
         password=config.password,
         from_addr=config.from_addr,
@@ -231,8 +234,9 @@ def main(addressfile:pathlib.Path, send_list:bool, config:ConfigData):
 
         # Hack:
         # Datumsangaben (21.08.1950) aus Excel werden bei Excel intern als 21.08.1950 00:00:00 gespeichert.
-        # Daher bei allen Datumsangaben, wo der Zeittempel 00:00:00 ist, die Uhrzeit entfernen.
+        # Daher bei allen Datumsangaben, wo der Zeitstempel 00:00:00 ist, die Uhrzeit entfernen.
         # Für das gesamte DataFrame alle " 00:00:00" Zeitstempel am Ende entfernen
+        # Alternativ read_excel_as_clean_strings() aufrufen.
         addressdata = addressdata.astype(str).replace(r'\s+00:00:00$', '', regex=True)
 
     except FileNotFoundError:
@@ -245,8 +249,11 @@ def main(addressfile:pathlib.Path, send_list:bool, config:ConfigData):
             attachment_data = f.read()
 
     # get all columns with e-mail addresses
-    r = re.compile("E-Mail*")
+    r = re.compile("E-Mail.*", re.IGNORECASE)
     email_addresses = list(filter(r.match, addressdata.columns))
+    if len(email_addresses) == 0:
+        logger.error(f"Keine gültigen E-Mail-Adressen gefunden. Mindestens ein Spaltennamen muss mit 'E-Mail' beginnen.")
+        raise ValueError("Keine gültigen E-Mail-Adressen gefunden.")
 
     # initialize server connection
     with SMTPConnection(config) as smtp:
@@ -268,9 +275,10 @@ def main(addressfile:pathlib.Path, send_list:bool, config:ConfigData):
 
                 if send_list:
                     body_text = config.body_plaintext_complete_list.format(**data)
-                    body_html = config.body_html_complete_list.format(**data)
                     msg.set_content(body_text, subtype="plain", charset="utf-8")
-                    msg.add_alternative(body_html, subtype="html", charset="utf-8")
+                    if config.body_html_complete_list:
+                        body_html = config.body_html_complete_list.format(**data)
+                        msg.add_alternative(body_html, subtype="html", charset="utf-8")
 
                     mime_type, _ = mimetypes.guess_type(addressfile.name)
                     maintype, subtype = mime_type.split("/", 1)
@@ -283,9 +291,10 @@ def main(addressfile:pathlib.Path, send_list:bool, config:ConfigData):
                         )
                 else:
                     body_text = config.body_plaintext_userdata.format(**data)
-                    body_html = config.body_html_userdata.format(**data)
                     msg.set_content(body_text, subtype="plain", charset="utf-8")
-                    msg.add_alternative(body_html, subtype="html", charset="utf-8")
+                    if config.body_html_userdata:
+                        body_html = config.body_html_userdata.format(**data)
+                        msg.add_alternative(body_html, subtype="html", charset="utf-8")
 
                 smtp.send_message(msg)
                 logger.debug(f"E-Mail an {msg['To']} gesendet. (Datenreihe {row})")
@@ -310,7 +319,7 @@ config_example = (
 "password=***PASSWORD***\n"
 "use_tls=True\n"
 "use_ssl=False\n"
-"timeout=10\n"
+"timeout=10\n\n"
 "[E-MAIL]\n"
 ";<Alle Spaltennamen der Tabelle können als Platzhalter verwendet werden.>\n"
 "subject=Aktuelle Adressliste\n"
@@ -357,7 +366,7 @@ config_example = (
 "                    </body>\n"
 "                  </html>\n\n"
 "[TABLE]\n"
-"headline_row=3\n"
+"headline_row=3\n\n"
 ";<Diese Sektion ist optional.>\n"
 "[EMAIL_LOGGING]\n"
 "send_log_to=user@example.com\n"
@@ -365,13 +374,14 @@ config_example = (
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("-f", "--file", default='./Testdaten.xlsx',
                         help="Pfad der Adressliste als xls oder xlsx Datei.")
     parser.add_argument("-c", "--config", default='./config.ini',
-                        help="Konfiguration und E-Mail Zugang z.B.\n" + config_example)
+                        help="Konfiguration und E-Mail Zugang. (Siehe Beispiel unten.)")
     parser.add_argument("-l", "--sendlist", action='store_true', help="Sende die gesamte Liste. Wenn nicht angegeben, werden nur die persönlichen Daten an die Person gesendet.")
-    parser.add_argument("--trace", default="debug", choices=["info", "debug"], help="Logging level")
+    parser.add_argument("--trace", default="info", choices=["warning", "info", "debug"], help="Logging level")
+    parser.description = "Beispielkonfiguration:\n\n" + config_example
     args = parser.parse_args()
 
     print(args.sendlist)
@@ -412,23 +422,23 @@ if __name__ == '__main__':
             kwargs["username"] = value
         if (value := config.get("SMTP", "password", fallback=None)) is not None:
             kwargs["password"] = value
-        if (value := config.getboolean('SMTP', 'use_tls', fallback=None)) is not None:
+        if (value := config.getboolean("SMTP", "use_tls", fallback=None)) is not None:
             kwargs["use_tls"] = value
-        if (value := config.getboolean('SMTP', 'use_ssl', fallback=None)) is not None:
+        if (value := config.getboolean("SMTP", "use_ssl", fallback=None)) is not None:
             kwargs["use_ssl"] = value
-        if (value := config.getfloat('SMTP', 'timeout', fallback=None)) is not None:
+        if (value := config.getfloat("SMTP", "timeout", fallback=None)) is not None:
             kwargs["timeout"] = value
         if (value := config.get("SMTP", "reply_to", fallback=None)) is not None: kwargs["reply_to"] = value
-        if (value := config.getint('TABLE', 'headline_row', fallback=None)) is not None: kwargs["header_row"] = value
+        if (value := config.get("E-MAIL", "html_actual_data", fallback=None)) is not None: kwargs["body_html_userdata"] = value
+        if (value := config.get("E-MAIL", "html_actual_list", fallback=None)) is not None: kwargs["body_html_complete_list"] = value
+        if (value := config.getint("TABLE", "headline_row", fallback=None)) is not None: kwargs["header_row"] = value
         if (value := config.get("EMAIL_LOGGING", "send_log_to", fallback=None)) is not None: kwargs["send_log_to"] = value
 
-        config_data=ConfigData(smtp_host=str(config['SMTP']['smtp_host']),
-                               from_addr=str(config['SMTP']['from_addr']),
-                               subject=str(config['E-MAIL']['subject']),
-                               body_plaintext_userdata=str(config['E-MAIL']['text_actual_data']),
-                               body_html_userdata=str(config['E-MAIL']['text_actual_data']),
-                               body_plaintext_complete_list=str(config['E-MAIL']['text_actual_list']),
-                               body_html_complete_list = str(config['E-MAIL']['html_actual_list']),
+        config_data=ConfigData(smtp_host=str(config["SMTP"]["smtp_host"]),
+                               from_addr=str(config["SMTP"]["from_addr"]),
+                               subject=str(config["E-MAIL"]["subject"]),
+                               body_plaintext_userdata=str(config["E-MAIL"]["text_actual_data"]),
+                               body_plaintext_complete_list=str(config["E-MAIL"]["text_actual_list"]),
                                **kwargs)
     except Exception as e:
         logger.error(f"Fehler beim Einlesen der Konfiguration: {e}", exc_info=True) #log with complete traceback
