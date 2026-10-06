@@ -76,7 +76,7 @@ $ python -m aiosmtpd -n
 
 Eine zweite Konsole im Repo öffnen und das Python Skript mit den Testdaten starten:
 ```shell
-$ python Adressliste.py -f ./Testdaten.xlsx -c ./config_aiosmtpd.ini 
+$ python Adressliste.py -f ./Testdaten.xlsx -c ./config_aiosmtpd.ini
 ```
 bzw.
 ```shell
@@ -161,7 +161,7 @@ Die Mails werden an alle Adressen gesendet, die dem Muster entsprechen.
 
 
 ## ▶️ Nutzung / CLI-Interface
-Beispielaufruf: 
+Beispielaufruf:
 ```
 python Adressliste.py -f 'Meine Testdaten.xlsx' -c config.ini
 ```
@@ -169,13 +169,13 @@ python Adressliste.py -f 'Meine Testdaten.xlsx' -c config.ini
 ### Kommandozeilen-Parameter
 ```
   -f,  --file [Pfad]
-      Pfad zur Adressliste (xls/xlsx-Datei). Siehe Testdaten.xlsx. Default: 
+      Pfad zur Adressliste (xls/xlsx-Datei). Siehe Testdaten.xlsx.
 
   -c, --config [Pfad]
       Pfad zur Konfigurationsdatei. Siehe config_template.ini. Default: ./config.ini
 
   -l, --sendlist
-      Wird dieser Parameter angegeben, wird die gesamte Liste an alle Teilnehmer versendet. 
+      Wird dieser Parameter angegeben, wird die gesamte Liste an alle Teilnehmer versendet.
 
   --trace [debug, info, warning]
       Bestimmt das Trace-level für Log-Ausgaben. Default: info
@@ -198,7 +198,7 @@ In `/etc/anacrontab`:
 Damit läuft das Skript zuverlässig auch auf Systemen, die nicht dauerhaft eingeschaltet sind.
 
 ### Windows Aufgabenplaner
-Unter Windows kann ein komplett automatischer Versand mittels *Aufgabenplanung* realisiert werden. 
+Unter Windows kann ein komplett automatischer Versand mittels *Aufgabenplanung* realisiert werden.
 
 ## 🛠️ Testmodus
 Für einen Test-/Dry-Run-Modus, bei dem keine E-Mails tatsächlich versendet werden, kann das Modul
