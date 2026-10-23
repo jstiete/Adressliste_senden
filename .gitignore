@@ -1,5 +1,9 @@
-config.ini
-config_private.ini
+config*.ini
+!config_template.ini
+!config_aiosmtpd.ini
+
+*.xlsx
+!Testdaten.xlsx
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

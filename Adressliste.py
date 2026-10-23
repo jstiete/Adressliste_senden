@@ -95,7 +95,7 @@ def add_email_loghandler(config:ConfigData):
 
     mail_formatter = logging.Formatter(
         fmt="%(asctime)s\t- %(levelname)s\t- %(filename)s:(%(lineno)d) - %(message)s",
-        datefmt="%YYYY-%mm-%dd %HH:%MM:%SS",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
     handler = make_email_handler(
